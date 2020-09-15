@@ -1,5 +1,8 @@
 package components
 
+import compiler.LexicalError
+import compiler.Lexico
+import compiler.Token
 import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Toolkit
@@ -13,13 +16,14 @@ import javax.swing.table.DefaultTableModel
 
 class EditorCompiler(private val jTextArea: JTextArea, private val jTable: JTable, private val jLabel: JLabel) {
     private var isFileNew = true
-    private var dir: String? = ""
-    private var file: String? = ""
+    private var mDir: String? = ""
+    private var mFile: String? = ""
     fun new() {
         jTextArea.text = ""
         jLabel.text = ""
         (jTable.model as DefaultTableModel).rowCount = 0
         isFileNew = true
+        clearTableMessages()
     }
 
     fun open() {
@@ -46,11 +50,16 @@ class EditorCompiler(private val jTextArea: JTextArea, private val jTable: JTabl
 
                 bufferedReader.close()
 
+                clearTableMessages()
+
+                jLabel.text = path
+                isFileNew = false
+
+                mDir = dir
+                mFile = file
             } catch (e: IOException) {
                 e.printStackTrace()
             }
-            jLabel.text = path
-            isFileNew = false
         }
     }
 
@@ -61,25 +70,25 @@ class EditorCompiler(private val jTextArea: JTextArea, private val jTable: JTabl
             fileDialog.filenameFilter = FilenameFilter { _, name -> name.toLowerCase().endsWith(".txt") }
             fileDialog.isVisible = true
             if (fileDialog.file != null) {
-                dir = fileDialog.directory
-                file = if (!fileDialog.file.endsWith(".txt"))
+                mDir = fileDialog.directory
+                mFile = if (!fileDialog.file.endsWith(".txt"))
                     "${fileDialog.file}.txt"
                 else
                     fileDialog.file
 
-                if (dir != null && file != null)
-                    saveFile(dir, file)
+                if (mDir != null && mFile != null)
+                    saveFile(mDir, mFile)
 
                 isFileNew = false
             }
         } else
-            saveFile(dir, file)
+            saveFile(mDir, mFile)
 
     }
 
     private fun saveFile(dir: String?, file: String?) {
         val lines = jTextArea.text.split("\\n")
-        val path = "$dir$file"
+        val path = if (isFileNew) "$dir$file" else "$mDir$mFile"
         val mFile = File(path)
         try {
             if (isFileNew)
@@ -122,9 +131,53 @@ class EditorCompiler(private val jTextArea: JTextArea, private val jTable: JTabl
         jTextArea.replaceSelection("")
     }
 
+    private fun clearTableMessages() {
+        val model = (jTable.model as JConsoleTableModel)
+        model.clear()
+    }
 
     fun compile() {
-        jLabel.text = "compilação de programas ainda não foi implementada"
+        clearTableMessages()
+        val model = (jTable.model as JConsoleTableModel)
+
+        val lexico = Lexico()
+        lexico.setInput(jTextArea.text)
+        var t: Token?
+        var lastToken: Token? = null
+        try {
+            t = lexico.nextToken()
+            if (t != null)
+                lastToken = t
+
+            val jCompilerMessages = arrayListOf<JCompilerMessage>()
+
+            while (t != null) {
+                val id = t.id
+                val mClass = EditorCompilerUtils.getClassById(id)
+                val lexeme = t.lexeme
+                val pos = t.position
+                val line = jTextArea.getLineOfOffset(pos)
+
+                jCompilerMessages.add(JCompilerMessage(line + 1, mClass, lexeme))
+
+                t = lexico.nextToken()
+            }
+
+            for (message in jCompilerMessages)
+                model.addRowJcompilerMessage(message)
+
+        } catch (e: LexicalError) {
+            val pos = e.position
+            val line = jTextArea.getLineOfOffset(pos)
+            val symbol = jTextArea.getText(pos, 1)
+            val lexeme = lastToken?.lexeme
+            val msg = e.message
+
+            val message = EditorCompilerUtils.getCompilerError(msg, symbol, lexeme)
+
+            val jCompilerMessage = JCompilerMessage(line + 1, "Erro", message)
+            model.addRowJcompilerMessage(jCompilerMessage)
+        }
     }
 
     fun showTeam() = JOptionPane.showMessageDialog(

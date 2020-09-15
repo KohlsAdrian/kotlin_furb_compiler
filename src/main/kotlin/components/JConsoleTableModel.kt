@@ -1,33 +1,38 @@
 package components
 
-import java.util.*
 import javax.swing.table.DefaultTableModel
 
-class JConsoleTableModel(var errors: List<JCompilerError>) : DefaultTableModel() {
-    private val COL_LINE = 0
-    private val COL_ERROR = 1
-    private val COL_DESC = 2
+class JConsoleTableModel : DefaultTableModel() {
+    private val messages = arrayListOf<JCompilerMessage>()
 
     init {
-        val mColumns = arrayOf("Linha", "Erro", "Descrição")
+        val mColumns = arrayOf("Linha", "Classe", "Lexema")
         for (column in mColumns)
             addColumn(column)
-        for (error in errors) {
-            val v = Vector<JCompilerError>(3, 0)
-            v.add(error)
-            addRow(v)
-        }
+    }
 
+    fun clear() {
+        messages.clear()
+        if (rowCount > 0)
+            for (i in 0 until rowCount) removeRow(0)
+    }
+
+    fun addRowJcompilerMessage(jCompilerMessage: JCompilerMessage) {
+        messages.add(jCompilerMessage)
+        val line = jCompilerMessage.line
+        val error = jCompilerMessage.location
+        val msg = jCompilerMessage.description
+        addRow(arrayOf(line, error, msg))
     }
 
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean = false
 
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
-        val jCompilerError = errors[rowIndex]
+        val jCompilerError = messages[rowIndex]
         return when (columnIndex) {
-            COL_LINE -> jCompilerError.line
-            COL_ERROR -> jCompilerError.error
-            COL_DESC -> jCompilerError.description
+            0 -> jCompilerError.line
+            1 -> jCompilerError.location
+            2 -> jCompilerError.description
             else -> null
         }
     }

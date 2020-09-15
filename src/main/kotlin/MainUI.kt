@@ -1,5 +1,5 @@
 import components.EditorCompiler
-import components.JCompilerError
+import components.JCompilerMessage
 import components.JConsoleTableModel
 import components.JTextLineNumber
 import views.Console
@@ -20,17 +20,13 @@ fun main(args: Array<String>) = EventQueue.invokeLater {
     val jTable = JTable()
     val jLabel = JLabel()
 
-    //gerador de erros de teste no console
-    jTable.model = JConsoleTableModel(
-        List(100) { index -> JCompilerError(index, "Erro exemplo", "Erro na linha $index") }
-    )
-
+    jTable.model = JConsoleTableModel()
     jTable.tableHeader.reorderingAllowed = false
-    jTable.columnModel.getColumn(0).minWidth = 50
-    jTable.columnModel.getColumn(0).preferredWidth = 50
-    jTable.columnModel.getColumn(1).minWidth = 100
-    jTable.columnModel.getColumn(1).preferredWidth = 100
-    jTable.columnModel.getColumn(2).preferredWidth = 750
+    jTable.columnModel.getColumn(0).minWidth = 100
+    jTable.columnModel.getColumn(0).preferredWidth = 100
+    jTable.columnModel.getColumn(1).minWidth = 150
+    jTable.columnModel.getColumn(1).preferredWidth = 150
+    jTable.columnModel.getColumn(2).preferredWidth = 700
 
     MainUI(jTextArea, jTextLineNumber, jTable, jLabel).isVisible = true
 }
