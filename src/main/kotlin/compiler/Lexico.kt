@@ -8,7 +8,7 @@ class Lexico @JvmOverloads constructor(input: String? = "") : Constants {
         setPosition(0)
     }
 
-    private fun setPosition(pos: Int) {
+    fun setPosition(pos: Int) {
         position = pos
     }
 
@@ -48,9 +48,12 @@ class Lexico @JvmOverloads constructor(input: String? = "") : Constants {
         while (start <= end) {
             val half = (start + end) / 2
             when {
-                ScannerConstants.SCANNER_TABLE[half][0] == c.toInt() -> return ScannerConstants.SCANNER_TABLE[half][1]
-                ScannerConstants.SCANNER_TABLE[half][0] < c.toInt() -> start = half + 1
+                ScannerConstants.SCANNER_TABLE[half]
+                        [0] == c.toInt() -> return ScannerConstants.SCANNER_TABLE[half][1]
+                ScannerConstants.SCANNER_TABLE[half][0] < c.toInt() -> start =
+                    half + 1
                 else -> end = half - 1 //(SCANNER_TABLE[half][0] > c)
+
             }
         }
         return -1
@@ -69,7 +72,8 @@ class Lexico @JvmOverloads constructor(input: String? = "") : Constants {
             when {
                 comp == 0 -> return ScannerConstants.SPECIAL_CASES_VALUES[half]
                 comp < 0 -> start = half + 1
-                else -> end = half - 1 //(comp > 0)
+                else -> end = half - 1  //(comp > 0)
+
             }
         }
         return base

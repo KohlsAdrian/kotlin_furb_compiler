@@ -1,8 +1,6 @@
 package components
 
-import compiler.LexicalError
-import compiler.Lexico
-import compiler.Token
+import compiler.*
 import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Toolkit
@@ -10,9 +8,16 @@ import java.awt.datatransfer.Clipboard
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.StringSelection
 import java.io.*
+import java.lang.Exception
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
+import javax.swing.text.Utilities
 
+enum class ERRORTYPE {
+    LEXICAL,
+    SYNTATIC,
+    SEMANTIC,
+}
 
 class EditorCompiler(private val jTextArea: JTextArea, private val jTable: JTable, private val jLabel: JLabel) {
     private var isFileNew = true
@@ -137,47 +142,95 @@ class EditorCompiler(private val jTextArea: JTextArea, private val jTable: JTabl
     }
 
     fun compile() {
-        clearTableMessages()
-        val model = (jTable.model as JConsoleTableModel)
 
-        val lexico = Lexico()
-        lexico.setInput(jTextArea.text)
-        var t: Token?
-        var lastToken: Token? = null
         try {
-            t = lexico.nextToken()
-            if (t != null)
-                lastToken = t
+            clearTableMessages()
 
-            val jCompilerMessages = arrayListOf<JCompilerMessage>()
+            val lexico = Lexico()
+            val sintatico = Sintatico()
+            val semantico = Semantico()
 
-            while (t != null) {
-                val id = t.id
-                val mClass = EditorCompilerUtils.getClassById(id)
-                val lexeme = t.lexeme
-                val pos = t.position
-                val line = jTextArea.getLineOfOffset(pos)
+            lexico.setInput(jTextArea.text)
 
-                jCompilerMessages.add(JCompilerMessage(line + 1, mClass, lexeme))
+            sintatico.parse(lexico, semantico)
 
-                t = lexico.nextToken()
+            val compiled = semantico.getCompiled()
+            val code = semantico.getCode()
+            val dir = if(mDir?.length == 0) System.getProperty("user.dir") else mDir
+            try {
+                val file = if(mFile?.length == 0) "/compiler.txt" else mFile
+                val mFile = File("$dir$file")
+                mFile.delete()
+                mFile.createNewFile()
+
+                val f = FileOutputStream(mFile)
+                val h = DataOutputStream(f)
+
+                h.writeBytes(code)
+
+                h.close()
+                f.close()
+
+            } catch (e: IOException) {
+                e.printStackTrace()
             }
+            try {
+                val file = if(mFile?.length == 0) "/compiler.il" else mFile
+                val mFile = File("$dir$file")
+                mFile.delete()
+                mFile.createNewFile()
 
-            for (message in jCompilerMessages)
-                model.addRowJcompilerMessage(message)
+                val f = FileOutputStream(mFile)
+                val h = DataOutputStream(f)
 
+                h.writeBytes(compiled)
+
+                h.close()
+                f.close()
+
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+            //save in file txt
+
+            jLabel.text = "programa compilado com sucesso"
         } catch (e: LexicalError) {
             val pos = e.position
-            val line = jTextArea.getLineOfOffset(pos)
-            val symbol = jTextArea.getText(pos, 1)
-            val lexeme = lastToken?.lexeme
             val msg = e.message
-
-            val message = EditorCompilerUtils.getCompilerError(msg, symbol, lexeme)
-
-            val jCompilerMessage = JCompilerMessage(line + 1, "Erro", message)
-            model.addRowJcompilerMessage(jCompilerMessage)
+            consoleShowMessage(pos, msg, "erro léxico ao compilar programa", ERRORTYPE.LEXICAL)
+        } catch (e: SyntaticError) {
+            val pos = e.position
+            val msg = e.message
+            consoleShowMessage(pos, msg, "erro sintático ao compilar programa", ERRORTYPE.SYNTATIC)
+        } catch (e: SemanticError) {
+            val pos = e.position
+            val msg = e.message
+            consoleShowMessage(pos, msg, "erro semântico ao compilar programa", ERRORTYPE.SEMANTIC)
+        } catch (e: Exception){
+            jLabel.text = "$e"
         }
+    }
+
+    private fun consoleShowMessage(pos: Int, error: String?, message: String, errorType: ERRORTYPE) {
+        val model = (jTable.model as JConsoleTableModel)
+
+        val line = jTextArea.getLineOfOffset(pos)
+
+        val wordStart = Utilities.getWordStart(jTextArea, pos)
+        val wordEnd = Utilities.getWordEnd(jTextArea, pos)
+
+        val symbol = jTextArea.getText(pos, wordEnd - wordStart)
+
+        val messageConv = when (errorType) {
+            ERRORTYPE.LEXICAL -> EditorCompilerUtils.getLexicalError(error, symbol, null)
+            ERRORTYPE.SYNTATIC -> EditorCompilerUtils.getSyntaticError(error, symbol)
+            ERRORTYPE.SEMANTIC -> "Erro semântico não implementando"
+        }
+
+        val jCompilerMessage = JCompilerMessage(line + 1, "Erro", messageConv)
+        model.addRowJcompilerMessage(jCompilerMessage)
+        jLabel.text = message
+
     }
 
     fun showTeam() = JOptionPane.showMessageDialog(
